@@ -1,0 +1,6 @@
+source-text.txt
+extract.cjs
+build-data.cjs
+github-publish.mjs
+preview.mjs
+*.png

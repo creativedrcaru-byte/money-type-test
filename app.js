@@ -1,0 +1,21 @@
+import {groups, types, score} from './questions.js';
+const app=document.querySelector('#app');
+let selected=new Set(),page=0;
+try{const saved=JSON.parse(sessionStorage.getItem('money-type-v1'));if(saved){selected=new Set(saved.selected.filter(id=>groups.some(g=>g.items.some(q=>q.id===id))));page=Number.isInteger(saved.page)?Math.max(0,Math.min(10,saved.page)):0;}}catch{}
+function save(){try{sessionStorage.setItem('money-type-v1',JSON.stringify({selected:[...selected],page}));}catch{}}
+function go(n){page=n;save();render();window.scrollTo({top:0,behavior:'instant'});app.querySelector('h1').focus({preventScroll:true});}
+function render(){
+ if(page===10){renderResult();return;}
+ const g=groups[page],count=g.items.filter(q=>selected.has(q.id)).length;
+ app.innerHTML=`<p class="eyebrow">나를 이해하는 시간</p><h1 tabindex="-1">나의 머니타입은?</h1><p class="intro">다음의 단어나 표현이 자신에게 해당한다고 생각되는 것을 선택하세요.<br>정답이 없으므로 한 번 읽을 때 떠오르거나 느껴지는 대로 답을 하세요.</p><div class="progress-meta"><strong>${page+1} / 10 단계</strong><span>나에게 해당하는 단어 고르기</span></div><div class="track" role="progressbar" aria-label="검사 진행" aria-valuemin="0" aria-valuemax="10" aria-valuenow="${page+1}"><span style="width:${(page+1)*10}%"></span></div><nav class="steps" aria-label="문항 그룹">${groups.map((x,i)=>`<button class="step ${i===page?'current':i<page?'done':''}" data-page="${i}" ${i===page?'aria-current="step"':''}>${x.key}</button>`).join('')}</nav><section class="panel" aria-labelledby="group-title"><div class="panel-head"><span class="section-tag" id="group-title">[${g.key}]</span><span class="count" aria-live="polite">${count}개 선택</span></div><div class="choices">${g.items.map(q=>`<label class="choice"><input type="checkbox" value="${q.id}" ${selected.has(q.id)?'checked':''}><span class="box" aria-hidden="true">✓</span><span class="word"><span class="number">${q.id}</span>${q.label}</span></label>`).join('')}</div><p class="hint">여러 개를 선택할 수 있습니다. 해당하는 단어가 없으면 그대로 다음으로 이동하세요.</p></section><div class="navigation"><button class="button secondary" id="previous" ${page===0?'disabled':''}>← 이전</button><span class="nav-note">선택한 내용은 이동해도 유지됩니다</span><button class="button primary" id="next">${page===9?'결과 보기':'다음 →'}</button></div>`;
+ app.querySelectorAll('input').forEach(input=>input.addEventListener('change',()=>{const id=Number(input.value);input.checked?selected.add(id):selected.delete(id);save();app.querySelector('.count').textContent=`${g.items.filter(q=>selected.has(q.id)).length}개 선택`;}));
+ app.querySelectorAll('[data-page]').forEach(b=>b.onclick=()=>go(Number(b.dataset.page)));
+ app.querySelector('#previous').onclick=()=>go(page-1);app.querySelector('#next').onclick=()=>go(page+1);
+}
+function renderResult(){
+ const scores=score(selected),max=Math.max(...scores),winners=max?scores.flatMap((x,i)=>x===max?[i]:[]):[];
+ const title=winners.length?winners.map(i=>types[i]).join(' · '):'선택한 항목이 없습니다';
+ app.innerHTML=`<p class="eyebrow">MY MONEY TYPE</p><h1 tabindex="-1">나의 머니타입 결과</h1><p class="intro">선택한 단어를 바탕으로 여덟 가지 머니타입을 살펴보세요.</p><section class="result-top"><p>${winners.length>1?'가장 높은 점수의 유형 · 공동 1위':'나의 머니 타입 유형'}</p><h2>${title}</h2><p class="result-detail">${max?`최고 ${max}점 · 총 ${selected.size}개 선택${winners.length>1?'<br>최고점이 같아 해당하는 유형을 모두 표시했습니다.':''}`:'이전으로 돌아가 자신에게 해당하는 단어를 선택해 주세요.'}</p></section><section class="panel" aria-labelledby="chart-title"><h2 class="chart-title" id="chart-title">머니타입별 점수</h2><p class="chart-subtitle">[가] + 알파벳 그룹 + [나]의 선택 개수 합계 · 유형별 12점 만점</p><div role="img" aria-label="${scores.map((x,i)=>`${'ABCDEFGH'[i]} ${types[i]} ${x}점`).join(', ')}">${scores.map((s,i)=>`<div class="chart-row ${winners.includes(i)?'winner':''}"><span class="chart-label"><b>${'ABCDEFGH'[i]}</b> ${types[i]}</span><div class="bar-track"><div class="bar" style="width:${s/12*100}%"></div></div><span class="chart-value">${s}</span></div>`).join('')}</div><div class="legend">${types.map((t,i)=>`<span><strong>${'ABCDEFGH'[i]}</strong>${t}</span>`).join('')}</div></section><div class="navigation"><button class="button secondary" id="back">← 이전</button><button class="button primary" id="restart">다시 검사하기</button></div>`;
+ app.querySelector('#back').onclick=()=>go(9);app.querySelector('#restart').onclick=()=>{if(window.confirm('선택한 내용을 지우고 처음부터 다시 검사할까요?')){selected.clear();go(0);}};
+}
+render();
